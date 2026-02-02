@@ -4,7 +4,7 @@
 
 class VirtualMachineManager {
     constructor() {
-        this.vms = JSON.parse(localStorage.getItem('vb_vms') || '[]');
+        this.vms = this.loadData();
         this.selectedVmIndex = -1;
 
         this.initElements();
@@ -25,7 +25,7 @@ class VirtualMachineManager {
         this.detailsPane = document.getElementById('details-pane');
         this.emptyState = this.detailsPane.querySelector('.empty-state');
         this.vmDetails = document.getElementById('vm-active-details');
-        
+
         // Detail Fields
         this.detailName = document.getElementById('detail-name');
         this.infoName = document.getElementById('info-name');
@@ -36,7 +36,7 @@ class VirtualMachineManager {
         this.modalClose = document.getElementById('modal-close');
         this.modalCancel = document.getElementById('modal-cancel');
         this.modalCreate = document.getElementById('modal-create');
-        
+
         this.inputName = document.getElementById('vm-name-input');
         this.inputUrl = document.getElementById('vm-url-input');
     }
@@ -50,7 +50,7 @@ class VirtualMachineManager {
         this.modalClose.addEventListener('click', () => this.closeModal());
         this.modalCancel.addEventListener('click', () => this.closeModal());
         this.modalCreate.addEventListener('click', () => this.createVM());
-        
+
         // Close modal on click outside
         this.modalOverlay.addEventListener('click', (e) => {
             if (e.target === this.modalOverlay) this.closeModal();
@@ -59,15 +59,21 @@ class VirtualMachineManager {
 
     renderVMList() {
         this.vmList.innerHTML = '';
-        
+
         this.vms.forEach((vm, index) => {
             const li = document.createElement('li');
             li.className = `vm-item ${index === this.selectedVmIndex ? 'selected' : ''}`;
+            li.setAttribute('title', vm.name); // Tooltip
             li.innerHTML = `
                 <img src="https://upload.wikimedia.org/wikipedia/commons/2/25/Web_Hypertext_Concept_Icon.svg" class="vm-icon-small" alt="web">
-                <span class="vm-name-text">${vm.name}</span>
-                <div class="vm-status-dot ${vm.running ? 'running' : ''}"></div>
+                <div class="vm-info-col">
+                    <span class="vm-name-text">${vm.name}</span>
+                    <span class="vm-status-text">${vm.running ? 'In esecuzione' : 'Spent'}</span>
+                </div>
             `;
+            // Status dot fallback
+            // li.innerHTML += `<div class="vm-status-dot ${vm.running ? 'running' : ''}"></div>`;
+
             li.addEventListener('click', () => this.selectVM(index));
             this.vmList.appendChild(li);
         });
@@ -99,6 +105,10 @@ class VirtualMachineManager {
             this.detailName.textContent = vm.name;
             this.infoName.textContent = vm.name;
             this.infoUrl.textContent = vm.url;
+
+            // Highlight URL
+            this.infoUrl.href = vm.url;
+            this.infoUrl.target = "_blank";
         }
     }
 
@@ -134,26 +144,46 @@ class VirtualMachineManager {
         };
 
         this.vms.push(newVM);
-        this.saveData();
-        this.closeModal();
-        this.selectVM(this.vms.length - 1); // Select the new VM
+        if (this.saveData()) {
+            this.closeModal();
+            this.selectVM(this.vms.length - 1); // Select the new VM
+        }
     }
 
     startVM() {
         if (this.selectedVmIndex === -1) return;
-        
+
         const vm = this.vms[this.selectedVmIndex];
-        
-        // Simulating "Booting"
-        const dot = this.vmList.children[this.selectedVmIndex].querySelector('.vm-status-dot');
-        dot.classList.add('running'); // visual feedback immediately
+
+        // Update state to running
+        vm.running = true;
+        this.saveData(); // Persist running state
+        this.renderVMList();
 
         // Open in new tab (The "VM" window)
         window.open(vm.url, '_blank');
     }
 
+    loadData() {
+        try {
+            const data = localStorage.getItem('vb_vms');
+            return data ? JSON.parse(data) : [];
+        } catch (e) {
+            console.error('Errore nel caricamento dati:', e);
+            alert('Impossibile caricare le VM salvate. Verifica le impostazioni del browser (cookie/storage locale).');
+            return [];
+        }
+    }
+
     saveData() {
-        localStorage.setItem('vb_vms', JSON.stringify(this.vms));
+        try {
+            localStorage.setItem('vb_vms', JSON.stringify(this.vms));
+            return true;
+        } catch (e) {
+            console.error('Errore nel salvataggio:', e);
+            alert('Impossibile salvare la VM (localStorage bloccato?). Prova ad usare un server locale o un browser differente.');
+            return false;
+        }
     }
 }
 
